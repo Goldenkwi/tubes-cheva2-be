@@ -1,0 +1,177 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  STAFF
+}
+
+enum OrderStatus {
+  PENDING
+  PICKUP
+  WASHING
+  DRYING
+  IRONING
+  PACKING
+  READY
+  DELIVERED
+  COMPLETED
+  CANCELLED
+}
+
+enum ServiceType {
+  KILOAN
+  SATUAN
+  EXPRESS
+}
+
+enum PaymentMethod {
+  CASH
+  QRIS
+  EWALLET
+}
+
+enum PaymentStatus {
+  UNPAID
+  PAID
+  REFUNDED
+}
+
+enum NotificationType {
+  STATUS_UPDATE
+  PROMO
+  BILLING
+}
+
+model User {
+  id        Int      @id @default(autoincrement())
+  name      String
+  email     String   @unique
+  password  String
+  phone     String?
+  role      Role     @default(STAFF)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  orders          Order[]              @relation("CourierOrders")
+  statusHistories OrderStatusHistory[]
+}
+
+model Customer {
+  id            Int      @id @default(autoincrement())
+  name          String
+  phone         String   @unique
+  email         String?
+  address       String?
+  totalOrders   Int      @default(0)
+  totalWeight   Float    @default(0)
+  loyaltyPoints Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  orders        Order[]
+  notifications Notification[]
+}
+
+model Service {
+  id          Int         @id @default(autoincrement())
+  code        String      @unique
+  name        String
+  type        ServiceType @default(KILOAN)
+  pricePerKg  Int?
+  priceUnit   Int?
+  description String?
+  isActive    Boolean     @default(true)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  orders Order[]
+}
+
+model Order {
+  id              Int         @id @default(autoincrement())
+  orderNumber     String      @unique
+  trackingToken   String      @unique @default(uuid())
+  customerId      Int
+  serviceId       Int
+  weight          Float?
+  itemCount       Int?
+  totalPrice      Int
+  status          OrderStatus @default(PENDING)
+  pickupAddress   String?
+  deliveryAddress String?
+  pickupDate      DateTime?
+  deliveryDate    DateTime?
+  estimatedDone   DateTime?
+  completedAt     DateTime?
+  notes           String?
+  courierId       Int?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  customer        Customer             @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  service         Service              @relation(fields: [serviceId], references: [id], onDelete: Restrict)
+  courier         User?                @relation("CourierOrders", fields: [courierId], references: [id], onDelete: Restrict)
+  statusHistories OrderStatusHistory[]
+  transaction     Transaction?
+  notifications   Notification[]
+
+  @@index([customerId, createdAt])
+  @@index([serviceId])
+  @@index([courierId])
+  @@index([status, createdAt])
+}
+
+model OrderStatusHistory {
+  id        Int         @id @default(autoincrement())
+  orderId   Int
+  status    OrderStatus
+  changedBy Int
+  notes     String?
+  createdAt DateTime    @default(now())
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  user  User  @relation(fields: [changedBy], references: [id], onDelete: Restrict)
+
+  @@index([orderId, createdAt])
+}
+
+model Transaction {
+  id            Int           @id @default(autoincrement())
+  orderId       Int           @unique
+  amount        Int
+  paymentMethod PaymentMethod @default(CASH)
+  paymentStatus PaymentStatus @default(UNPAID)
+  paidAt        DateTime?
+  paymentProof  String?
+  notes         String?
+  createdAt     DateTime      @default(now())
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Restrict)
+
+  @@index([paymentStatus, paidAt])
+}
+
+model Notification {
+  id         Int              @id @default(autoincrement())
+  customerId Int
+  orderId    Int?
+  type       NotificationType @default(STATUS_UPDATE)
+  title      String
+  message    String
+  isRead     Boolean          @default(false)
+  createdAt  DateTime         @default(now())
+
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  order    Order?   @relation(fields: [orderId], references: [id], onDelete: SetNull)
+
+  @@index([customerId, isRead, createdAt])
+  @@index([orderId])
+}
