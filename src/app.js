@@ -3,11 +3,14 @@ const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
 const path = require('path');
+const swaggerUi = require('swagger-ui-express');
 
 const routes = require('./routes');
 const { errorHandler } = require('./middleware/errorHandler');
 const env = require('./config/env');
 const prisma = require('./config/database');
+
+const swaggerDocument = require('../docs/swagger.json');
 
 const app = express();
 
@@ -21,6 +24,7 @@ if (env.isDev) {
 }
 
 app.use('/uploads', express.static(path.resolve(__dirname, '..', 'uploads')));
+app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 
 app.get('/api/health', (req, res) => {
   res.json({ success: true, message: 'Cheva Laundry API is running', timestamp: new Date().toISOString() });
