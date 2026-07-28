@@ -10,13 +10,28 @@ Backend API for laundry management — orders, customers, services, transactions
 
 ```bash
 npm install
-cp .env.example .env     # lalu isi DATABASE_URL + JWT_SECRET
+cp .env.example .env     # lalu isi DATABASE_URL + DIRECT_URL + JWT_SECRET
 npm run prisma:migrate:deploy
 npm run prisma:seed
 npm run dev
 ```
 
 Server berjalan di `http://localhost:8000`.
+
+### Kalau pakai Supabase
+
+Butuh dua connection string, ambil di Dashboard > Project Settings > Database:
+
+| Var | Port | Dipakai untuk |
+|-----|------|---------------|
+| `DATABASE_URL` | 6543 | Runtime app (transaction pooler, `?pgbouncer=true`) |
+| `DIRECT_URL` | 5432 | `prisma migrate` / `generate` (session mode) |
+
+Catatan:
+- Pakai host `*.pooler.supabase.com`, bukan `db.<ref>.supabase.co` — yang terakhir cuma punya record AAAA jadi gagal di jaringan tanpa IPv6.
+- Sertakan `?sslmode=require`. Jangan tambah `sslaccept=strict`, chain sertifikat pooler bikin verifikasi gagal.
+- Koneksi pertama setelah project idle bisa timeout karena cold start; ulangi sekali.
+- Jangan jalanin `prisma:reset` ke Supabase — perintah itu men-drop schema, termasuk `auth` dan `storage`.
 
 ---
 
