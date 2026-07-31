@@ -57,7 +57,29 @@ async function listOrders({ status, customerId, page = 1, limit = 20, startDate,
   };
 }
 
-async function getOrder(id) {
+async function listMyOrders(customerId, { page = 1, limit = 20 }) {
+  const where = { customerId };
+  const total = await prisma.order.count({ where });
+  const orders = await prisma.order.findMany({
+    where,
+    skip: (page - 1) * limit,
+    take: limit,
+    orderBy: { createdAt: 'desc' },
+    include: {
+      service: { select: { id: true, name: true, type: true } },
+      courier: { select: { id: true, name: true } },
+      statusHistories: { orderBy: { createdAt: 'desc' }, take: 1 },
+      transaction: true,
+    },
+  });
+
+  return {
+    data: orders,
+    pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
+  };
+}
+
+async function getOrder(id, requester = null) {
   const order = await prisma.order.findUnique({
     where: { id },
     include: {
@@ -72,10 +94,20 @@ async function getOrder(id) {
     },
   });
   if (!order) throw Object.assign(new Error('Order not found'), { statusCode: 404 });
+
+  if (requester && requester.customer && order.customerId !== requester.customer.id) {
+    throw Object.assign(new Error('Anda tidak memiliki akses ke pesanan ini'), { statusCode: 403 });
+  }
+
   return order;
 }
 
-async function createOrder(data, userId) {
+async function createOrder(data, userId = null, customerIdOverride = null) {
+  const targetCustomerId = customerIdOverride || data.customerId;
+  if (!targetCustomerId) {
+    throw Object.assign(new Error('Customer ID wajib diisi'), { statusCode: 400 });
+  }
+
   const orderNumber = generateOrderNumber();
   const order = await prisma.$transaction(async (tx) => {
     const service = await tx.service.findUnique({ where: { id: data.serviceId } });
@@ -85,7 +117,7 @@ async function createOrder(data, userId) {
     const newOrder = await tx.order.create({
       data: {
         orderNumber,
-        customerId: data.customerId,
+        customerId: targetCustomerId,
         serviceId: data.serviceId,
         weight: data.weight,
         itemCount: data.itemCount,
@@ -103,13 +135,13 @@ async function createOrder(data, userId) {
       data: {
         orderId: newOrder.id,
         status: ORDER_STATUS.PENDING,
-        changedBy: userId,
+        changedBy: userId || null,
         notes: 'Pesanan dibuat',
       },
     });
 
     await tx.customer.update({
-      where: { id: data.customerId },
+      where: { id: targetCustomerId },
       data: {
         totalOrders: { increment: 1 },
         totalWeight: { increment: data.weight || 0 },
@@ -221,4 +253,5 @@ async function trackOrder(trackingToken) {
   return order;
 }
 
-module.exports = { listOrders, getOrder, createOrder, updateOrder, updateStatus, trackOrder };
+module.exports = { listOrders, listMyOrders, getOrder, createOrder, updateOrder, updateStatus, trackOrder };
+

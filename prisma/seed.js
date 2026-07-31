@@ -86,9 +86,41 @@ async function main() {
     )
   );
 
+  const cannedQuestionData = [
+    {
+      category: 'GENERAL',
+      question: 'Berapa jam operasional Cheva Laundry?',
+      answer: 'Cheva Laundry buka setiap hari Senin - Minggu dari pukul 07.00 s/d 21.00 WIB.',
+    },
+    {
+      category: 'GENERAL',
+      question: 'Di mana lokasi outlet Cheva Laundry?',
+      answer: 'Outlet kami berlokasi di Jl. Pendidikan No. 12, Bandung (Dekat Kampus).',
+    },
+    {
+      category: 'ORDER',
+      question: 'Berapa lama estimasi pengerjaan cuci reguler?',
+      answer: 'Estimasi pengerjaan cuci reguler (Kiloan) adalah 1-2 hari kerja.',
+    },
+    {
+      category: 'PAYMENT',
+      question: 'Metode pembayaran apa saja yang didukung?',
+      answer: 'Kami menerima pembayaran Tunai (CASH), QRIS (Gopay/OVO/Dana/Bank), dan E-Wallet.',
+    },
+  ];
+
+  const cannedQuestions = await Promise.all(
+    cannedQuestionData.map((q) =>
+      prisma.cannedQuestion.create({
+        data: q,
+      })
+    )
+  );
+
   console.log('Seed completed successfully');
   console.log(`Admin ready: ${admin.email}`);
   console.log(`Services created: ${services.length}`);
+  console.log(`Canned questions created: ${cannedQuestions.length}`);
 }
 
 main()

@@ -32,9 +32,40 @@ async function listTransactions({ page = 1, limit = 20, startDate, endDate, paym
   };
 }
 
-async function payOrder(orderId, data) {
+async function listMyTransactions(customerId, { page = 1, limit = 20 }) {
+  const where = { order: { customerId } };
+  const total = await prisma.transaction.count({ where });
+  const transactions = await prisma.transaction.findMany({
+    where,
+    skip: (page - 1) * limit,
+    take: limit,
+    orderBy: { createdAt: 'desc' },
+    include: {
+      order: {
+        select: {
+          id: true,
+          orderNumber: true,
+          totalPrice: true,
+          status: true,
+          service: { select: { name: true } },
+        },
+      },
+    },
+  });
+
+  return {
+    data: transactions,
+    pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
+  };
+}
+
+async function payOrder(orderId, data, requester = null) {
   const order = await prisma.order.findUnique({ where: { id: orderId } });
   if (!order) throw Object.assign(new Error('Order not found'), { statusCode: 404 });
+
+  if (requester && requester.customer && order.customerId !== requester.customer.id) {
+    throw Object.assign(new Error('Anda tidak memiliki akses untuk membayar pesanan ini'), { statusCode: 403 });
+  }
 
   const existing = await prisma.transaction.findUnique({ where: { orderId } });
   if (existing) throw Object.assign(new Error('Payment transaction already exists'), { statusCode: 409 });
@@ -108,4 +139,5 @@ async function getMonthlyReport(year, month) {
   };
 }
 
-module.exports = { listTransactions, payOrder, getDailyReport, getMonthlyReport };
+module.exports = { listTransactions, listMyTransactions, payOrder, getDailyReport, getMonthlyReport };
+

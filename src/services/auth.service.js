@@ -3,7 +3,8 @@ const prisma = require('../config/database');
 const { signToken } = require('../utils/jwt');
 
 async function login(email, password) {
-  const user = await prisma.user.findUnique({ where: { email } });
+  const normalizedEmail = email ? email.trim().toLowerCase() : '';
+  const user = await prisma.user.findUnique({ where: { email: normalizedEmail } });
   if (!user) throw Object.assign(new Error('Email atau password salah'), { statusCode: 401 });
 
   const valid = await bcrypt.compare(password, user.password);
@@ -19,12 +20,19 @@ async function login(email, password) {
 }
 
 async function register(data) {
-  const existing = await prisma.user.findUnique({ where: { email: data.email } });
+  const normalizedEmail = data.email ? data.email.trim().toLowerCase() : '';
+  const existing = await prisma.user.findUnique({ where: { email: normalizedEmail } });
   if (existing) throw Object.assign(new Error('Email sudah terdaftar'), { statusCode: 400 });
 
   const hashedPassword = await bcrypt.hash(data.password, 12);
   const user = await prisma.user.create({
-    data: { ...data, password: hashedPassword },
+    data: {
+      name: data.name,
+      email: normalizedEmail,
+      password: hashedPassword,
+      phone: data.phone,
+      role: data.role || 'STAFF',
+    },
     select: { id: true, name: true, email: true, role: true, phone: true, createdAt: true },
   });
   return user;

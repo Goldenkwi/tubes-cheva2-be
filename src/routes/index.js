@@ -8,6 +8,7 @@ const serviceRoutes = require('./service.routes');
 const transactionRoutes = require('./transaction.routes');
 const dashboardRoutes = require('./dashboard.routes');
 const notificationRoutes = require('./notification.routes');
+const cannedQuestionRoutes = require('./cannedQuestion.routes');
 
 const router = Router();
 
@@ -24,5 +25,7 @@ router.use('/products', serviceRoutes);
 router.use('/transactions', transactionRoutes);
 router.use('/dashboard', dashboardRoutes);
 router.use('/notifications', notificationRoutes);
+router.use('/canned-questions', cannedQuestionRoutes);
+router.use('/quick-replies', cannedQuestionRoutes);
 
 module.exports = router;

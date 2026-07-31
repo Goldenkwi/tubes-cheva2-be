@@ -18,10 +18,24 @@ async function listOrders(req, res, next) {
   }
 }
 
+async function listMyOrders(req, res, next) {
+  try {
+    const { page, limit } = req.query;
+    const result = await orderService.listMyOrders(req.customer.id, {
+      page: parseInt(page) || 1,
+      limit: parseInt(limit) || 20,
+    });
+    return response.paginated(res, result.data, result.pagination);
+  } catch (err) {
+    next(err);
+  }
+}
+
 async function getOrder(req, res, next) {
   try {
     const id = parseInt(req.params.id);
-    const order = await orderService.getOrder(id);
+    const requester = { user: req.user, customer: req.customer };
+    const order = await orderService.getOrder(id, requester);
     return response.success(res, order);
   } catch (err) {
     next(err);
@@ -30,7 +44,9 @@ async function getOrder(req, res, next) {
 
 async function createOrder(req, res, next) {
   try {
-    const order = await orderService.createOrder(req.body, req.user.id);
+    const userId = req.user ? req.user.id : null;
+    const customerIdOverride = req.customer ? req.customer.id : null;
+    const order = await orderService.createOrder(req.body, userId, customerIdOverride);
     return response.created(res, order, 'Pesanan berhasil dibuat');
   } catch (err) {
     next(err);
@@ -68,4 +84,5 @@ async function trackOrder(req, res, next) {
   }
 }
 
-module.exports = { listOrders, getOrder, createOrder, updateOrder, updateStatus, trackOrder };
+module.exports = { listOrders, listMyOrders, getOrder, createOrder, updateOrder, updateStatus, trackOrder };
+
