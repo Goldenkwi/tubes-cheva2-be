@@ -1,6 +1,6 @@
 # Cheva Laundry API
 
-Backend API for laundry management — orders, customers, services, transactions, staff, and real-time status tracking.
+Backend API for laundry management — orders, customers, services, transactions, staff, quick replies, and real-time status tracking.
 
 **Stack:** Node.js + Express + Prisma + PostgreSQL + JWT
 
@@ -52,52 +52,78 @@ Server berjalan di `http://localhost:8000`.
 
 ## API Endpoints
 
-### Public
+### Public (Bebas Akses)
 | Method | Endpoint | Deskripsi |
 |--------|----------|-----------|
 | GET | `/api/health` | Health check |
 | GET | `/api/ready` | Readiness check (DB) |
 | GET | `/api/services` | List layanan aktif |
 | GET | `/api/services/:id` | Detail layanan |
-| POST | `/api/login` | Login |
-| POST | `/api/register` | Register (sementara publik) |
+| POST | `/api/login` | Login User / Staff / Admin |
 | POST | `/api/logout` | Logout (stateless) |
+| POST | `/api/customers/register` | Registrasi pelanggan baru |
+| POST | `/api/customers/login` | Login pelanggan |
+| POST | `/api/customers/claim-account` | Klaim/aktivasi akun pelanggan offline (tanpa password) |
 | GET | `/api/orders/tracking/:trackingToken` | Tracking pesanan by UUID |
 
-### Auth Required (staffAndAbove)
+### Customer Auth (`authenticateCustomer`)
 | Method | Endpoint | Deskripsi |
 |--------|----------|-----------|
-| GET | `/api/me` | Profile user login |
-| GET | `/api/customers` | List pelanggan (search, page, limit) |
+| GET | `/api/customers/me` | Profil pelanggan yang sedang login |
+| PUT | `/api/customers/me` | Update profil pelanggan |
+| GET | `/api/orders/my-orders` | Daftar pesanan milik pelanggan login |
+| GET | `/api/transactions/my-transactions` | Daftar transaksi milik pelanggan login |
+| GET | `/api/notifications/my` | Notifikasi milik pelanggan login |
+| PATCH | `/api/notifications/read-all` | Tandai semua notifikasi pelanggan sebagai dibaca |
+
+### Dual Access: Customer / Staff / Admin (`authenticateCustomerOrUser`)
+| Method | Endpoint | Deskripsi |
+|--------|----------|-----------|
+| GET | `/api/orders/:id` | Detail pesanan (Customer: hanya milik sendiri; Staff/Admin: semua) |
+| POST | `/api/orders` | Buat pesanan baru |
+| POST | `/api/transactions/:id/pay` | Catat/upload pembayaran (Customer: ownership check; Staff/Admin: bebas) |
+| GET | `/api/notifications/:customerId` | Notifikasi pelanggan by ID (Customer: ownership check) |
+| PATCH | `/api/notifications/:id/read` | Tandai notifikasi spesifik sudah dibaca (Customer: ownership check) |
+| GET | `/api/quick-replies` | List pertanyaan cepat / canned questions aktif |
+| GET | `/api/canned-questions/:id` | Detail pertanyaan cepat |
+| POST | `/api/quick-replies/ask` | Ajukan pertanyaan cepat (Rate limited: maks 10x/jam) |
+
+### Staff / Admin Required (`staffAndAbove`)
+| Method | Endpoint | Deskripsi |
+|--------|----------|-----------|
+| GET | `/api/me` | Profil User/Staff/Admin login |
+| GET | `/api/customers` | List semua pelanggan (search, pagination) |
 | GET | `/api/customers/:id` | Detail pelanggan |
-| POST | `/api/customers` | Tambah pelanggan |
-| PUT | `/api/customers/:id` | Edit pelanggan |
-| GET | `/api/orders` | List pesanan (filter: status, customerId, date range) |
-| GET | `/api/orders/:id` | Detail pesanan |
-| POST | `/api/orders` | Buat pesanan |
-| PUT | `/api/orders/:id` | Edit pesanan |
-| PATCH | `/api/orders/:id/status` | Update status |
-| POST | `/api/transactions/:id/pay` | Catat pembayaran |
-| GET | `/api/dashboard/stats` | Statistik dashboard |
-| GET | `/api/dashboard/recent-orders` | Pesanan terbaru |
-| GET | `/api/dashboard/revenue-chart` | Data grafik revenue |
-| GET | `/api/notifications/:customerId` | Notifikasi pelanggan |
-| PATCH | `/api/notifications/:id/read` | Tandai sudah dibaca |
+| POST | `/api/customers` | Buat pelanggan baru manual oleh staf (tanpa password) |
+| PUT | `/api/customers/:id` | Update data pelanggan |
+| GET | `/api/orders` | List semua pesanan (filter: status, customerId, date range) |
+| PUT | `/api/orders/:id` | Edit data pesanan |
+| PATCH | `/api/orders/:id/status` | Update status pesanan (PENDING → PICKUP → WASHING dst) |
+| GET | `/api/dashboard/stats` | Statistik dashboard operational |
+| GET | `/api/dashboard/recent-orders` | Daftar pesanan terbaru |
+| GET | `/api/dashboard/revenue-chart` | Data grafik pendapatan |
 
-### Admin Only
+### Admin Only (`adminOnly`)
 | Method | Endpoint | Deskripsi |
 |--------|----------|-----------|
-| GET | `/api/users` | List staff |
-| PUT | `/api/users/:id` | Edit staff |
-| DELETE | `/api/users/:id` | Nonaktifkan staff |
-| POST | `/api/services` | Tambah layanan |
-| PUT | `/api/services/:id` | Edit layanan |
-| DELETE | `/api/services/:id` | Nonaktifkan layanan |
-| GET | `/api/transactions` | List transaksi |
-| GET | `/api/transactions/report/daily` | Laporan harian |
-| GET | `/api/transactions/report/monthly` | Laporan bulanan |
+| POST | `/api/register` | Tambah akun Staff/Admin baru |
+| GET | `/api/users` | List seluruh staff/user |
+| PUT | `/api/users/:id` | Edit data staff/user |
+| DELETE | `/api/users/:id` | Nonaktifkan akun staff/user |
+| POST | `/api/services` | Tambah jenis layanan baru |
+| PUT | `/api/services/:id` | Edit jenis layanan |
+| DELETE | `/api/services/:id` | Nonaktifkan jenis layanan |
+| GET | `/api/transactions` | List seluruh transaksi |
+| GET | `/api/transactions/report/daily` | Laporan pendapatan harian |
+| GET | `/api/transactions/report/monthly` | Laporan pendapatan bulanan |
+| POST | `/api/canned-questions` | Tambah pertanyaan cepat baru |
+| PUT | `/api/canned-questions/:id` | Edit pertanyaan cepat |
+| PATCH | `/api/canned-questions/:id/deactivate` | Nonaktifkan pertanyaan cepat |
+| DELETE | `/api/canned-questions/:id` | Hapus pertanyaan cepat |
+| GET | `/api/canned-questions/history` | Riwayat audit tanya-jawab pertanyaan cepat |
 
-> `/api/products/*` adalah alias dari `/api/services/*` (kompatibilitas FE).
+> `/api/products/*` adalah alias dari `/api/services/*` (kompatibilitas FE).  
+> `/api/quick-replies/*` adalah alias dari `/api/canned-questions/*`.
 
 ---
 
@@ -139,31 +165,44 @@ Error:
 | 201 | Created |
 | 400 | Bad Request / Validation Error |
 | 401 | Unauthorized (token salah/hilang) |
-| 403 | Forbidden (role tidak sesuai) |
+| 403 | Forbidden (role tidak sesuai / ownership check gagal) |
 | 404 | Not Found |
+| 429 | Too Many Requests (Rate limit tercapai) |
 | 500 | Internal Server Error |
 
 ---
 
-## Auth
+## Auth & Token Types
 
-Header: `Authorization: Bearer <token>`
+Header HTTP: `Authorization: Bearer <token>`
 
-Role: `ADMIN` (full akses), `STAFF` (operasional).
+Aplikasi ini menggunakan 2 jenis token JWT terpisah untuk keamanan entitas:
 
-> `/api/register` publik hanya untuk development. Kunci dengan `authenticate` + `adminOnly` sebelum production.
+1. **Token Staff / Admin (`User`):**
+   * Payload: `{ userId, role }` (`ADMIN` / `STAFF`)
+   * Digunakan untuk mengakses endpoint manajemen internal via middleware `authenticate`, `staffAndAbove`, dan `adminOnly`.
+   * Pendaftaran staf/admin baru via `/api/register` **dikunci penuh** dan hanya dapat dilakukan oleh `ADMIN`.
+
+2. **Token Pelanggan (`Customer`):**
+   * Payload: `{ customerId }`
+   * Digunakan untuk akses fitur self-service pelanggan via middleware `authenticateCustomer`.
+
+3. **Dual Middleware (`authenticateCustomerOrUser`):**
+   * Menerima baik Token Customer maupun Token User. Otomatis memverifikasi kepemilikan data (ownership check) jika diakses oleh Customer.
 
 ---
 
 ## Database Models
 
 ```
-User        → id, name, email, password, phone, role (ADMIN/STAFF), isActive
-Customer    → id, name, phone, email, address, totalOrders, totalWeight, loyaltyPoints
-Service     → id, code, name, type (KILOAN/SATUAN/EXPRESS), pricePerKg, priceUnit, isActive
-Order       → id, orderNumber, trackingToken, customerId, serviceId, weight, totalPrice, status, ...times
-Transaction → id, orderId (unique), amount, paymentMethod (CASH/QRIS/EWALLET), paymentStatus
-Notification→ id, customerId, orderId, type (STATUS_UPDATE/PROMO/BILLING), title, message, isRead
+User                  → id, name, email, password, phone, role (ADMIN/STAFF), isActive, createdAt, updatedAt
+Customer              → id, name, phone, email (nullable), password (nullable), address, totalOrders, totalWeight, loyaltyPoints, createdAt, updatedAt
+Service               → id, code, name, type (KILOAN/SATUAN/EXPRESS), pricePerKg, priceUnit, description, isActive, createdAt, updatedAt
+Order                 → id, orderNumber, trackingToken, customerId, serviceId, weight, itemCount, totalPrice, status, pickupAddress, deliveryAddress, pickupDate, deliveryDate, estimatedDone, completedAt, notes, courierId, createdAt, updatedAt
+Transaction           → id, orderId (unique), amount, paymentMethod (CASH/QRIS/EWALLET), paymentStatus (UNPAID/PAID/REFUNDED), paidAt, paymentProof, notes, createdAt
+Notification          → id, customerId, orderId, type (STATUS_UPDATE/PROMO/BILLING), title, message, isRead, createdAt
+CannedQuestion        → id, category, question, answer, isActive, createdAt, updatedAt
+CannedQuestionHistory → id, cannedQuestionId, userId, customerId, orderId, questionText, answerText, userIp, createdAt
 ```
 
 ---
@@ -178,6 +217,7 @@ Notification→ id, customerId, orderId, type (STATUS_UPDATE/PROMO/BILLING), tit
 | Database | PostgreSQL |
 | Auth | JWT + bcryptjs |
 | Validation | Zod |
+| Rate Limiter | express-rate-limit |
 | Upload | Multer |
 | Logging | Winston + Morgan |
 | Security | Helmet, CORS |
@@ -190,7 +230,7 @@ Notification→ id, customerId, orderId, type (STATUS_UPDATE/PROMO/BILLING), tit
 ```
 src/
 ├── config/        # env, database
-├── middleware/     # auth, validate, errorHandler, upload
+├── middleware/    # auth, validate, rateLimiter, errorHandler, upload
 ├── controllers/   # thin - parse req, call service, send res
 ├── services/      # thick - business logic
 ├── validators/    # Zod schemas
@@ -207,7 +247,7 @@ prisma/
 
 ## Database Migration
 
-`prisma/schema.prisma` adalah satu-satunya source of truth. SQL di `docs/database/legacy/` hanya arsip.
+`prisma/schema.prisma` adalah satu-satunya source of truth.
 
 Dev:
 ```bash
@@ -224,4 +264,3 @@ npm run prisma:migrate:deploy
 npm start
 ```
 
-Jangan jalankan `prisma migrate dev` / `prisma migrate reset` / `prisma db push` di production.

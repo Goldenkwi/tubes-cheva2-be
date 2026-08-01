@@ -62,6 +62,7 @@ model User {
 
   orders          Order[]              @relation("CourierOrders")
   statusHistories OrderStatusHistory[]
+  cannedHistories CannedQuestionHistory[]
 }
 
 model Customer {
@@ -69,6 +70,7 @@ model Customer {
   name          String
   phone         String   @unique
   email         String?
+  password      String?
   address       String?
   totalOrders   Int      @default(0)
   totalWeight   Float    @default(0)
@@ -76,8 +78,9 @@ model Customer {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
-  orders        Order[]
-  notifications Notification[]
+  orders          Order[]
+  notifications   Notification[]
+  cannedHistories CannedQuestionHistory[]
 }
 
 model Service {
@@ -98,7 +101,7 @@ model Service {
 model Order {
   id              Int         @id @default(autoincrement())
   orderNumber     String      @unique
-  trackingToken   String      @unique @default(uuid())
+  trackingToken   String      @default(uuid()) @unique
   customerId      Int
   serviceId       Int
   weight          Float?
@@ -122,6 +125,7 @@ model Order {
   statusHistories OrderStatusHistory[]
   transaction     Transaction?
   notifications   Notification[]
+  cannedHistories CannedQuestionHistory[]
 
   @@index([customerId, createdAt])
   @@index([serviceId])
@@ -175,3 +179,39 @@ model Notification {
   @@index([customerId, isRead, createdAt])
   @@index([orderId])
 }
+
+model CannedQuestion {
+  id        Int      @id @default(autoincrement())
+  category  String   @default("GENERAL")
+  question  String
+  answer    String
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  histories CannedQuestionHistory[]
+
+  @@index([category, isActive])
+}
+
+model CannedQuestionHistory {
+  id               Int            @id @default(autoincrement())
+  cannedQuestionId Int?
+  userId           Int?
+  customerId       Int?
+  orderId          Int?
+  questionText     String
+  answerText       String
+  userIp           String?
+  createdAt        DateTime       @default(now())
+
+  cannedQuestion CannedQuestion? @relation(fields: [cannedQuestionId], references: [id], onDelete: SetNull)
+  user           User?           @relation(fields: [userId], references: [id], onDelete: SetNull)
+  customer       Customer?       @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  order          Order?          @relation(fields: [orderId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt])
+  @@index([cannedQuestionId])
+  @@index([customerId])
+}
+

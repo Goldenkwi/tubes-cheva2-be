@@ -17,10 +17,24 @@ async function listTransactions(req, res, next) {
   }
 }
 
+async function listMyTransactions(req, res, next) {
+  try {
+    const { page, limit } = req.query;
+    const result = await transactionService.listMyTransactions(req.customer.id, {
+      page: parseInt(page) || 1,
+      limit: parseInt(limit) || 20,
+    });
+    return response.paginated(res, result.data, result.pagination);
+  } catch (err) {
+    next(err);
+  }
+}
+
 async function payOrder(req, res, next) {
   try {
     const orderId = parseInt(req.params.id);
-    const transaction = await transactionService.payOrder(orderId, req.body);
+    const requester = { user: req.user, customer: req.customer };
+    const transaction = await transactionService.payOrder(orderId, req.body, requester);
     return response.created(res, transaction, 'Pembayaran berhasil');
   } catch (err) {
     next(err);
@@ -47,4 +61,5 @@ async function getMonthlyReport(req, res, next) {
   }
 }
 
-module.exports = { listTransactions, payOrder, getDailyReport, getMonthlyReport };
+module.exports = { listTransactions, listMyTransactions, payOrder, getDailyReport, getMonthlyReport };
+

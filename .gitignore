@@ -4,4 +4,7 @@ uploads/*
 !uploads/.gitkeep
 dist/
 *.log
+logfile
+data/
 .DS_Store
+
