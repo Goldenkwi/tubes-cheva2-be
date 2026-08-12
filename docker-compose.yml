@@ -1,0 +1,54 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: cheva-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-cheva_password}
+      POSTGRES_DB: tubes_cheva
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d tubes_cheva"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  be:
+    # Image di-pull dari Docker Hub.
+    # Untuk build lokal dari source: docker compose build
+    image: ammarkwi/cheva2-be:latest
+    build: .
+    container_name: cheva-be
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 8000
+      DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD:-cheva_password}@db:5432/tubes_cheva
+      JWT_SECRET: ${JWT_SECRET:-cheva-default-jwt-secret-change-me}
+      JWT_EXPIRES_IN: 7d
+      UPLOAD_DIR: uploads
+      MAX_FILE_SIZE: 5242880
+      SEED_ADMIN_NAME: ${SEED_ADMIN_NAME:-Admin Cheva Laundry}
+      SEED_ADMIN_EMAIL: ${SEED_ADMIN_EMAIL:-admin@cheva.local}
+      SEED_ADMIN_PHONE: ${SEED_ADMIN_PHONE:-081234567890}
+      SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:-admin12345678}
+    ports:
+      - "8000:8000"
+    volumes:
+      - be_uploads:/app/uploads
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8000/api/health >/dev/null 2>&1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+volumes:
+  pgdata:
+  be_uploads:

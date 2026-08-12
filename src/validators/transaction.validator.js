@@ -5,7 +5,7 @@ const payOrderSchema = z.object({
     id: z.string().regex(/^\d+$/, 'ID must be a number'),
   }),
   body: z.object({
-    paymentMethod: z.enum(['CASH', 'QRIS', 'EWALLET']).default('CASH'),
+    paymentMethod: z.enum(['CASH', 'QRIS', 'TRANSFER', 'EWALLET']).default('CASH'),
     paymentProof: z.string().trim().min(1).max(500).optional(),
     notes: z.string().trim().max(1000).optional(),
   }).strict(),

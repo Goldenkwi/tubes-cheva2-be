@@ -1,6 +1,6 @@
 # Cheva Laundry API
 
-Backend API for laundry management — orders, customers, services, transactions, staff, quick replies, and real-time status tracking.
+Backend API for laundry management — orders, customers, services, transactions, expenses, staff, quick replies, and real-time status tracking.
 
 **Stack:** Node.js + Express + Prisma + PostgreSQL + JWT
 
@@ -8,9 +8,25 @@ Backend API for laundry management — orders, customers, services, transactions
 
 ## Quick Start
 
+### Opsi A — Docker (paling gampang, DB + BE otomatis)
+
+Dari folder repo ini:
+
+```bash
+docker compose up --build
+```
+
+Compose otomatis: nyalain PostgreSQL, apply migrations, seed data contoh, lalu
+jalanin API di `http://localhost:8000`. Panduan lengkap: [`README.docker.md`](./README.docker.md).
+
+Diajari langkah demi langkah (clone, jalanin, push ke GitHub):
+[`docker.md`](./docker.md).
+
+### Opsi B — Manual (Node lokal)
+
 ```bash
 npm install
-cp .env.example .env     # lalu isi DATABASE_URL + DIRECT_URL + JWT_SECRET
+cp .env.example .env     # lalu isi DATABASE_URL + JWT_SECRET
 npm run prisma:migrate:deploy
 npm run prisma:seed
 npm run dev
@@ -18,20 +34,9 @@ npm run dev
 
 Server berjalan di `http://localhost:8000`.
 
-### Kalau pakai Supabase
-
-Butuh dua connection string, ambil di Dashboard > Project Settings > Database:
-
-| Var | Port | Dipakai untuk |
-|-----|------|---------------|
-| `DATABASE_URL` | 6543 | Runtime app (transaction pooler, `?pgbouncer=true`) |
-| `DIRECT_URL` | 5432 | `prisma migrate` / `generate` (session mode) |
-
-Catatan:
-- Pakai host `*.pooler.supabase.com`, bukan `db.<ref>.supabase.co` — yang terakhir cuma punya record AAAA jadi gagal di jaringan tanpa IPv6.
-- Sertakan `?sslmode=require`. Jangan tambah `sslaccept=strict`, chain sertifikat pooler bikin verifikasi gagal.
-- Koneksi pertama setelah project idle bisa timeout karena cold start; ulangi sekali.
-- Jangan jalanin `prisma:reset` ke Supabase — perintah itu men-drop schema, termasuk `auth` dan `storage`.
+> Butuh PostgreSQL lokal. Buat database `tubes_cheva` dulu, lalu isi
+> `DATABASE_URL` (lihat `.env.example`). Generate `JWT_SECRET`
+> dengan `npm run jwt:secret`.
 
 ---
 
@@ -72,7 +77,8 @@ Catatan:
 |--------|----------|-----------|
 | GET | `/api/health` | Health check |
 | GET | `/api/ready` | Readiness check (DB) |
-| GET | `/api/services` | List layanan aktif |
+| GET | `/api/services` | List layanan aktif (termasuk sub-layanan) |
+| GET | `/api/services/tree` | List layanan bertingkat (parent + children) |
 | GET | `/api/services/:id` | Detail layanan |
 | POST | `/api/login` | Login User / Staff / Admin |
 | POST | `/api/logout` | Logout (stateless) |
@@ -113,8 +119,8 @@ Catatan:
 | PUT | `/api/customers/:id` | Update data pelanggan |
 | GET | `/api/orders` | List semua pesanan (filter: status, customerId, date range) |
 | PUT | `/api/orders/:id` | Edit data pesanan |
-| PATCH | `/api/orders/:id/status` | Update status pesanan (PENDING → PICKUP → WASHING dst) |
-| GET | `/api/dashboard/stats` | Statistik dashboard operational |
+| PATCH | `/api/orders/:id/status` | Update status pesanan (PENDING → WASHING → DRYING dst) |
+| GET | `/api/dashboard/stats` | Statistik dashboard (4 kartu + % perubahan vs kemarin) |
 | GET | `/api/dashboard/recent-orders` | Daftar pesanan terbaru |
 | GET | `/api/dashboard/revenue-chart` | Data grafik pendapatan |
 
@@ -131,6 +137,12 @@ Catatan:
 | GET | `/api/transactions` | List seluruh transaksi |
 | GET | `/api/transactions/report/daily` | Laporan pendapatan harian |
 | GET | `/api/transactions/report/monthly` | Laporan pendapatan bulanan |
+| GET | `/api/expenses` | List pengeluaran (filter: category, date range, pagination) |
+| GET | `/api/expenses/summary` | Ringkasan pengeluaran bulan berjalan (total + per kategori) |
+| GET | `/api/expenses/:id` | Detail pengeluaran |
+| POST | `/api/expenses` | Catat pengeluaran baru |
+| PUT | `/api/expenses/:id` | Edit pengeluaran |
+| DELETE | `/api/expenses/:id` | Hapus pengeluaran |
 | POST | `/api/canned-questions` | Tambah pertanyaan cepat baru |
 | PUT | `/api/canned-questions/:id` | Edit pertanyaan cepat |
 | PATCH | `/api/canned-questions/:id/deactivate` | Nonaktifkan pertanyaan cepat |
@@ -144,11 +156,26 @@ Catatan:
 
 ## Order Status Flow
 
+8 status (mengikuti desain Figma):
+
 ```
-PENDING → PICKUP → WASHING → DRYING → IRONING → PACKING → READY → DELIVERED → COMPLETED
-                                                                              ↓
-                                                                          CANCELLED
+PENDING → WASHING → DRYING → IRONING → READY → DELIVERED → COMPLETED
+   └──────────┴─────────┴─────────┴────────┴──────→ CANCELLED
 ```
+
+| Status | Label (ID) |
+|--------|------------|
+| PENDING | Menunggu |
+| WASHING | Dicuci |
+| DRYING | Dikeringkan |
+| IRONING | Disetrika |
+| READY | Siap Diambil |
+| DELIVERED | Diantar |
+| COMPLETED | Selesai |
+| CANCELLED | Dibatalkan |
+
+`CANCELLED` bisa dari tahap mana pun sebelum `DELIVERED`. Transisi divalidasi
+di `ORDER_TRANSITIONS` (`src/utils/constants.js`).
 
 ---
 
@@ -212,13 +239,26 @@ Aplikasi ini menggunakan 2 jenis token JWT terpisah untuk keamanan entitas:
 ```
 User                  → id, name, email, password, phone, role (ADMIN/STAFF), isActive, createdAt, updatedAt
 Customer              → id, name, phone, email (nullable), password (nullable), address, totalOrders, totalWeight, loyaltyPoints, createdAt, updatedAt
-Service               → id, code, name, type (KILOAN/SATUAN/EXPRESS), pricePerKg, priceUnit, description, isActive, createdAt, updatedAt
+Service               → id, code, name, type (KILOAN/SATUAN/EXPRESS), category (nullable), parentId (nullable, self-relation), pricePerKg, priceUnit, description, isActive, createdAt, updatedAt
 Order                 → id, orderNumber, trackingToken, customerId, serviceId, weight, itemCount, totalPrice, status, pickupAddress, deliveryAddress, pickupDate, deliveryDate, estimatedDone, completedAt, notes, courierId, createdAt, updatedAt
-Transaction           → id, orderId (unique), amount, paymentMethod (CASH/QRIS/EWALLET), paymentStatus (UNPAID/PAID/REFUNDED), paidAt, paymentProof, notes, createdAt
+OrderItem             → id, orderId, serviceId, name, weight (nullable), itemCount (nullable), unitPrice, subtotal, createdAt   (multi-layanan per pesanan)
+Transaction           → id, orderId (unique), amount, paymentMethod (CASH/QRIS/TRANSFER/EWALLET), paymentStatus (UNPAID/PAID/REFUNDED), paidAt, paymentProof, notes, createdAt
+Expense               → id, category (BAHAN_BAKU/UTILITAS/GAJI/ADMINISTRASI/LAINNYA), amount, source (nullable), description (nullable), receiptProof (nullable), spentAt, createdBy (nullable), createdAt, updatedAt
 Notification          → id, customerId, orderId, type (STATUS_UPDATE/PROMO/BILLING), title, message, isRead, createdAt
 CannedQuestion        → id, category, question, answer, isActive, createdAt, updatedAt
 CannedQuestionHistory → id, cannedQuestionId, userId, customerId, orderId, questionText, answerText, userIp, createdAt
 ```
+
+### Catatan model penting
+
+- **Multi-layanan:** satu `Order` bisa punya beberapa `OrderItem` (mis. Cuci
+  Kiloan + Selimut Kecil). `POST /api/orders` menerima `items[]`; kalau tidak,
+  fallback ke `serviceId` tunggal (legacy, tetap didukung).
+- **Layanan bertingkat:** `Service.parentId` = self-relation. Layanan tambahan
+  (Selimut → Selimut Kecil/Sedang/Besar) jadi anak dari kategori induk. Ambil
+  pohonnya via `GET /api/services/tree`.
+- **Pembayaran manual:** tidak ada payment gateway. Owner pasang QR GoPay statik;
+  admin/staff tandai `PAID` manual. Metode: CASH, QRIS, TRANSFER, EWALLET.
 
 ---
 
@@ -255,7 +295,10 @@ src/
 └── server.js      # entry point
 prisma/
 ├── schema.prisma  # database schema
-└── seed.js        # seed data
+├── migrations/    # migration history (prisma migrate)
+└── seed.js        # seed data (admin, layanan bertingkat, pelanggan, pesanan, pengeluaran)
+docs/
+└── swagger.json   # OpenAPI 3 spec (dirender di /api/docs)
 ```
 
 ---

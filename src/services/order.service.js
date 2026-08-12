@@ -27,6 +27,42 @@ function calculateTotalPrice(service, { weight, itemCount }) {
   return Math.round(service.pricePerKg * weight);
 }
 
+// Resolve order line items from the request payload. Supports both the legacy
+// single-service shape (serviceId + weight/itemCount) and the multi-service
+// shape (items[]). Returns { items, totalPrice, primaryServiceId, totalWeight }.
+async function resolveOrderItems(tx, data) {
+  const rawItems =
+    Array.isArray(data.items) && data.items.length > 0
+      ? data.items
+      : [{ serviceId: data.serviceId, weight: data.weight, itemCount: data.itemCount }];
+
+  const items = [];
+  let totalPrice = 0;
+  let totalWeight = 0;
+
+  for (const raw of rawItems) {
+    const service = await tx.service.findUnique({ where: { id: raw.serviceId } });
+    if (!service) {
+      throw Object.assign(new Error(`Service ${raw.serviceId} not found`), { statusCode: 404 });
+    }
+    const subtotal = calculateTotalPrice(service, raw);
+    const unitPrice = service.type === SERVICE_TYPE.SATUAN ? service.priceUnit : service.pricePerKg;
+
+    items.push({
+      serviceId: service.id,
+      name: service.name,
+      weight: raw.weight ?? null,
+      itemCount: raw.itemCount ?? null,
+      unitPrice,
+      subtotal,
+    });
+    totalPrice += subtotal;
+    totalWeight += raw.weight || 0;
+  }
+
+  return { items, totalPrice, totalWeight, primaryServiceId: items[0].serviceId };
+}
+
 async function listOrders({ status, customerId, page = 1, limit = 20, startDate, endDate }) {
   const where = {};
   if (status) where.status = status;
@@ -85,6 +121,7 @@ async function getOrder(id, requester = null) {
     include: {
       customer: true,
       service: true,
+      items: { include: { service: { select: { id: true, name: true, type: true } } } },
       courier: { select: { id: true, name: true } },
       transaction: true,
       statusHistories: {
@@ -110,16 +147,14 @@ async function createOrder(data, userId = null, customerIdOverride = null) {
 
   const orderNumber = generateOrderNumber();
   const order = await prisma.$transaction(async (tx) => {
-    const service = await tx.service.findUnique({ where: { id: data.serviceId } });
-    if (!service) throw Object.assign(new Error('Service not found'), { statusCode: 404 });
-    const totalPrice = calculateTotalPrice(service, data);
+    const { items, totalPrice, totalWeight, primaryServiceId } = await resolveOrderItems(tx, data);
 
     const newOrder = await tx.order.create({
       data: {
         orderNumber,
         customerId: targetCustomerId,
-        serviceId: data.serviceId,
-        weight: data.weight,
+        serviceId: primaryServiceId,
+        weight: data.weight ?? (totalWeight || null),
         itemCount: data.itemCount,
         totalPrice,
         pickupAddress: data.pickupAddress,
@@ -128,6 +163,9 @@ async function createOrder(data, userId = null, customerIdOverride = null) {
         notes: data.notes,
         courierId: data.courierId,
         status: ORDER_STATUS.PENDING,
+        items: {
+          create: items,
+        },
       },
     });
 
@@ -144,7 +182,7 @@ async function createOrder(data, userId = null, customerIdOverride = null) {
       where: { id: targetCustomerId },
       data: {
         totalOrders: { increment: 1 },
-        totalWeight: { increment: data.weight || 0 },
+        totalWeight: { increment: totalWeight || data.weight || 0 },
       },
     });
 

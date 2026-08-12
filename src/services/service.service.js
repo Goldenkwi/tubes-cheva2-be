@@ -12,6 +12,29 @@ async function listServices(activeOnly = true) {
   return prisma.service.findMany({
     where,
     orderBy: { type: 'asc' },
+    include: {
+      children: {
+        where: activeOnly ? { isActive: true } : undefined,
+        orderBy: { name: 'asc' },
+      },
+    },
+  });
+}
+
+// Returns only top-level services (no parent) with their nested children,
+// so the FE can render the Layanan Utama / Layanan Tambahan hierarchy.
+async function listServiceTree(activeOnly = true) {
+  const where = { parentId: null };
+  if (activeOnly) where.isActive = true;
+  return prisma.service.findMany({
+    where,
+    orderBy: { type: 'asc' },
+    include: {
+      children: {
+        where: activeOnly ? { isActive: true } : undefined,
+        orderBy: { name: 'asc' },
+      },
+    },
   });
 }
 
@@ -42,4 +65,4 @@ async function deactivateService(id) {
   });
 }
 
-module.exports = { listServices, getService, createService, updateService, deactivateService };
+module.exports = { listServices, listServiceTree, getService, createService, updateService, deactivateService };

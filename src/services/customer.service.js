@@ -184,6 +184,7 @@ async function getCustomer(id) {
     },
   });
   if (!customer) throw Object.assign(new Error('Customer not found'), { statusCode: 404 });
+  delete customer.password;
   return customer;
 }
 

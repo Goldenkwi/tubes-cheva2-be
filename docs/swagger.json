@@ -3,7 +3,7 @@
   "info": {
     "title": "Cheva Laundry API",
     "description": "Laundry management system API - manage orders, customers, services, transactions, and staff. Built with Express + Prisma + JWT.",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "contact": {
       "name": "Cheva Laundry"
     }
@@ -1159,11 +1159,9 @@
               "type": "string",
               "enum": [
                 "PENDING",
-                "PICKUP",
                 "WASHING",
                 "DRYING",
                 "IRONING",
-                "PACKING",
                 "READY",
                 "DELIVERED",
                 "COMPLETED",
@@ -1264,8 +1262,7 @@
               "schema": {
                 "type": "object",
                 "required": [
-                  "customerId",
-                  "serviceId"
+                  "customerId"
                 ],
                 "properties": {
                   "customerId": {
@@ -1274,7 +1271,8 @@
                   },
                   "serviceId": {
                     "type": "integer",
-                    "example": 1
+                    "example": 1,
+                    "description": "Legacy single-service. Wajib jika `items` tidak dikirim."
                   },
                   "weight": {
                     "type": "number",
@@ -1304,8 +1302,34 @@
                   "courierId": {
                     "type": "integer",
                     "example": 2
+                  },
+                  "items": {
+                    "type": "array",
+                    "description": "Multi-layanan. Jika diisi, total dihitung dari seluruh baris.",
+                    "items": {
+                      "type": "object",
+                      "required": [
+                        "serviceId"
+                      ],
+                      "properties": {
+                        "serviceId": {
+                          "type": "integer",
+                          "example": 2
+                        },
+                        "weight": {
+                          "type": "number",
+                          "format": "float",
+                          "example": 7.4
+                        },
+                        "itemCount": {
+                          "type": "integer",
+                          "example": 1
+                        }
+                      }
+                    }
                   }
-                }
+                },
+                "description": "Buat pesanan. Kirim `serviceId` (single-service, legacy) ATAU `items[]` (multi-layanan). Salah satu wajib ada."
               }
             }
           }
@@ -1925,6 +1949,7 @@
                     "enum": [
                       "CASH",
                       "QRIS",
+                      "TRANSFER",
                       "EWALLET"
                     ],
                     "default": "CASH"
@@ -3112,6 +3137,337 @@
           }
         }
       }
+    },
+    "/api/expenses": {
+      "get": {
+        "tags": [
+          "Expenses"
+        ],
+        "summary": "List pengeluaran (Admin)",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "default": 1
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "default": 20
+            }
+          },
+          {
+            "name": "category",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "BAHAN_BAKU",
+                "UTILITAS",
+                "GAJI",
+                "ADMINISTRASI",
+                "LAINNYA"
+              ]
+            }
+          },
+          {
+            "name": "startDate",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "endDate",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Expenses"
+        ],
+        "summary": "Catat pengeluaran baru (Admin)",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "category",
+                  "amount"
+                ],
+                "properties": {
+                  "category": {
+                    "type": "string",
+                    "enum": [
+                      "BAHAN_BAKU",
+                      "UTILITAS",
+                      "GAJI",
+                      "ADMINISTRASI",
+                      "LAINNYA"
+                    ]
+                  },
+                  "amount": {
+                    "type": "integer",
+                    "example": 150000
+                  },
+                  "source": {
+                    "type": "string",
+                    "example": "Kas Harian"
+                  },
+                  "description": {
+                    "type": "string",
+                    "example": "Deterjen bulanan"
+                  },
+                  "receiptProof": {
+                    "type": "string"
+                  },
+                  "spentAt": {
+                    "type": "string",
+                    "format": "date-time"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created"
+          },
+          "400": {
+            "description": "Validation error"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        }
+      }
+    },
+    "/api/expenses/summary": {
+      "get": {
+        "tags": [
+          "Expenses"
+        ],
+        "summary": "Ringkasan pengeluaran bulan berjalan (Admin)",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "date",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "description": "Acuan bulan (default: hari ini)."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK — { totalExpense, count, byCategory }"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        }
+      }
+    },
+    "/api/expenses/{id}": {
+      "get": {
+        "tags": [
+          "Expenses"
+        ],
+        "summary": "Detail pengeluaran (Admin)",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "404": {
+            "description": "Not found"
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Expenses"
+        ],
+        "summary": "Edit pengeluaran (Admin)",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [],
+                "properties": {
+                  "category": {
+                    "type": "string",
+                    "enum": [
+                      "BAHAN_BAKU",
+                      "UTILITAS",
+                      "GAJI",
+                      "ADMINISTRASI",
+                      "LAINNYA"
+                    ]
+                  },
+                  "amount": {
+                    "type": "integer",
+                    "example": 150000
+                  },
+                  "source": {
+                    "type": "string",
+                    "example": "Kas Harian"
+                  },
+                  "description": {
+                    "type": "string",
+                    "example": "Deterjen bulanan"
+                  },
+                  "receiptProof": {
+                    "type": "string"
+                  },
+                  "spentAt": {
+                    "type": "string",
+                    "format": "date-time"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "404": {
+            "description": "Not found"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Expenses"
+        ],
+        "summary": "Hapus pengeluaran (Admin)",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Deleted"
+          },
+          "404": {
+            "description": "Not found"
+          }
+        }
+      }
+    },
+    "/api/services/tree": {
+      "get": {
+        "tags": [
+          "Services"
+        ],
+        "summary": "List layanan bertingkat (parent + children)",
+        "description": "Hanya layanan top-level beserta sub-layanannya. Query `all=true` untuk termasuk yang nonaktif.",
+        "parameters": [
+          {
+            "name": "all",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -3254,6 +3610,24 @@
           "updatedAt": {
             "type": "string",
             "format": "date-time"
+          },
+          "category": {
+            "type": "string",
+            "nullable": true,
+            "example": "Layanan Tambahan",
+            "description": "Kategori layanan (mis. Layanan Utama / Layanan Tambahan)."
+          },
+          "parentId": {
+            "type": "integer",
+            "nullable": true,
+            "description": "ID layanan induk (untuk sub-layanan bertingkat). Null = layanan top-level."
+          },
+          "children": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Service"
+            },
+            "description": "Sub-layanan di bawah layanan ini."
           }
         }
       },
@@ -3261,16 +3635,15 @@
         "type": "string",
         "enum": [
           "PENDING",
-          "PICKUP",
           "WASHING",
           "DRYING",
           "IRONING",
-          "PACKING",
           "READY",
           "DELIVERED",
           "COMPLETED",
           "CANCELLED"
-        ]
+        ],
+        "description": "Status pesanan (8 tahap). Alur: PENDING → WASHING → DRYING → IRONING → READY → DELIVERED → COMPLETED. CANCELLED bisa dari tahap mana pun sebelum DELIVERED."
       },
       "Order": {
         "type": "object",
@@ -3367,6 +3740,13 @@
             "items": {
               "$ref": "#/components/schemas/OrderStatusHistory"
             }
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OrderItem"
+            },
+            "description": "Rincian layanan per baris (mendukung multi-layanan dalam 1 pesanan)."
           }
         }
       },
@@ -3411,12 +3791,7 @@
             "type": "integer"
           },
           "paymentMethod": {
-            "type": "string",
-            "enum": [
-              "CASH",
-              "QRIS",
-              "EWALLET"
-            ]
+            "$ref": "#/components/schemas/PaymentMethod"
           },
           "paymentStatus": {
             "type": "string",
@@ -3749,6 +4124,115 @@
             "example": true
           }
         }
+      },
+      "PaymentMethod": {
+        "type": "string",
+        "enum": [
+          "CASH",
+          "QRIS",
+          "TRANSFER",
+          "EWALLET"
+        ],
+        "description": "Metode pembayaran manual (tanpa payment gateway)."
+      },
+      "ExpenseCategory": {
+        "type": "string",
+        "enum": [
+          "BAHAN_BAKU",
+          "UTILITAS",
+          "GAJI",
+          "ADMINISTRASI",
+          "LAINNYA"
+        ],
+        "description": "Kategori pengeluaran. BAHAN_BAKU=Bahan Baku & Perlengkapan, UTILITAS=Utilitas & Operasional, GAJI=Karyawan & Gaji, ADMINISTRASI=Administrasi, LAINNYA=Lainnya."
+      },
+      "OrderItem": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "orderId": {
+            "type": "integer"
+          },
+          "serviceId": {
+            "type": "integer"
+          },
+          "name": {
+            "type": "string",
+            "example": "Selimut Kecil"
+          },
+          "weight": {
+            "type": "number",
+            "format": "float",
+            "nullable": true,
+            "example": 7.4
+          },
+          "itemCount": {
+            "type": "integer",
+            "nullable": true,
+            "example": 1
+          },
+          "unitPrice": {
+            "type": "integer",
+            "example": 8000
+          },
+          "subtotal": {
+            "type": "integer",
+            "example": 59200
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "Expense": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "category": {
+            "$ref": "#/components/schemas/ExpenseCategory"
+          },
+          "amount": {
+            "type": "integer",
+            "example": 150000
+          },
+          "source": {
+            "type": "string",
+            "nullable": true,
+            "example": "Kas Harian"
+          },
+          "description": {
+            "type": "string",
+            "nullable": true,
+            "example": "Deterjen & pelembut bulanan"
+          },
+          "receiptProof": {
+            "type": "string",
+            "nullable": true,
+            "description": "URL/path bukti nota (opsional)."
+          },
+          "spentAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "createdBy": {
+            "type": "integer",
+            "nullable": true,
+            "description": "User ID yang mencatat."
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
       }
     },
     "responses": {
@@ -3793,5 +4277,11 @@
         }
       }
     }
-  }
+  },
+  "tags": [
+    {
+      "name": "Expenses",
+      "description": "Pencatatan pengeluaran (Catat Pengeluaran) — Admin only."
+    }
+  ]
 }

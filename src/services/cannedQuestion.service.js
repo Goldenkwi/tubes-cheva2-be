@@ -17,7 +17,11 @@ async function getQuestion(id, requester = null) {
     throw Object.assign(new Error('Canned question not found'), { statusCode: 404 });
   }
 
-  const isStaffOrAdmin = requester && requester.user && (requester.user.role === 'ADMIN' || requester.user.role === 'STAFF');
+  // requester === null berarti dipanggil dari route admin (CRUD internal),
+  // jadi jangan terapkan filter isActive.
+  const isStaffOrAdmin =
+    requester === null ||
+    (requester.user && (requester.user.role === 'ADMIN' || requester.user.role === 'STAFF'));
   if (!question.isActive && !isStaffOrAdmin) {
     throw Object.assign(new Error('Canned question not found'), { statusCode: 404 });
   }

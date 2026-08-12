@@ -8,6 +8,8 @@ const createServiceSchema = z.object({
     code: serviceCode,
     name: z.string().min(1, 'Nama layanan wajib diisi'),
     type: z.enum(['KILOAN', 'SATUAN', 'EXPRESS']),
+    category: z.string().trim().max(100).optional().nullable(),
+    parentId: z.number().int().positive().optional().nullable(),
     pricePerKg: price.optional().nullable(),
     priceUnit: price.optional().nullable(),
     description: z.string().optional().nullable(),
@@ -23,6 +25,8 @@ const updateServiceSchema = z.object({
   body: z.object({
     name: z.string().min(1).optional(),
     type: z.enum(['KILOAN', 'SATUAN', 'EXPRESS']).optional(),
+    category: z.string().trim().max(100).optional().nullable(),
+    parentId: z.number().int().positive().optional().nullable(),
     pricePerKg: price.optional().nullable(),
     priceUnit: price.optional().nullable(),
     description: z.string().optional().nullable(),

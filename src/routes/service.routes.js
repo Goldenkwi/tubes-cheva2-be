@@ -7,6 +7,7 @@ const { createServiceSchema, updateServiceSchema } = require('../validators/serv
 const router = Router();
 
 router.get('/', serviceController.listServices);
+router.get('/tree', serviceController.listServiceTree);
 router.get('/:id', serviceController.getService);
 router.post('/', authenticate, adminOnly, validate(createServiceSchema), serviceController.createService);
 router.put('/:id', authenticate, adminOnly, validate(updateServiceSchema), serviceController.updateService);

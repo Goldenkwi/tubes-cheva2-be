@@ -20,7 +20,6 @@ const env = {
   port: parseInt(process.env.PORT, 10) || 8000,
   database: {
     url: databaseUrl,
-    directUrl: process.env.DIRECT_URL || databaseUrl,
   },
   jwt: {
     secret: jwtSecret,

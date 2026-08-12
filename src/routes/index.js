@@ -6,6 +6,7 @@ const customerRoutes = require('./customer.routes');
 const orderRoutes = require('./order.routes');
 const serviceRoutes = require('./service.routes');
 const transactionRoutes = require('./transaction.routes');
+const expenseRoutes = require('./expense.routes');
 const dashboardRoutes = require('./dashboard.routes');
 const notificationRoutes = require('./notification.routes');
 const cannedQuestionRoutes = require('./cannedQuestion.routes');
@@ -23,6 +24,7 @@ router.use('/services', serviceRoutes);
 // resource under /products so existing FE calls resolve without renaming.
 router.use('/products', serviceRoutes);
 router.use('/transactions', transactionRoutes);
+router.use('/expenses', expenseRoutes);
 router.use('/dashboard', dashboardRoutes);
 router.use('/notifications', notificationRoutes);
 router.use('/canned-questions', cannedQuestionRoutes);

@@ -1,17 +1,29 @@
 const { z } = require('zod');
 const { ORDER_STATUS } = require('../utils/constants');
 
+const orderItemSchema = z.object({
+  serviceId: z.number().int().positive(),
+  weight: z.number().positive().optional(),
+  itemCount: z.number().int().positive().optional(),
+});
+
 const createOrderSchema = z.object({
   body: z.object({
     customerId: z.number().int().positive(),
-    serviceId: z.number().int().positive(),
+    // Single-service (legacy) fields — used when `items` is not provided.
+    serviceId: z.number().int().positive().optional(),
     weight: z.number().positive().optional(),
     itemCount: z.number().int().positive().optional(),
+    // Multi-service: when provided, order total is computed from line items.
+    items: z.array(orderItemSchema).min(1).optional(),
     pickupAddress: z.string().optional(),
     deliveryAddress: z.string().optional(),
     estimatedDone: z.string().datetime().optional(),
     notes: z.string().optional(),
     courierId: z.number().int().positive().optional(),
+  }).refine((d) => d.serviceId || (d.items && d.items.length > 0), {
+    message: 'Either serviceId or items is required',
+    path: ['items'],
   }),
 });
 

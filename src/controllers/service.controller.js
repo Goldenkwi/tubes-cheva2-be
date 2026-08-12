@@ -11,6 +11,16 @@ async function listServices(req, res, next) {
   }
 }
 
+async function listServiceTree(req, res, next) {
+  try {
+    const activeOnly = req.query.all !== 'true';
+    const services = await serviceService.listServiceTree(activeOnly);
+    return response.success(res, services);
+  } catch (err) {
+    next(err);
+  }
+}
+
 async function getService(req, res, next) {
   try {
     const id = parseInt(req.params.id);
@@ -50,4 +60,4 @@ async function deactivateService(req, res, next) {
   }
 }
 
-module.exports = { listServices, getService, createService, updateService, deactivateService };
+module.exports = { listServices, listServiceTree, getService, createService, updateService, deactivateService };

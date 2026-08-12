@@ -3,12 +3,8 @@ generator client {
 }
 
 datasource db {
-  provider  = "postgresql"
-  // Runtime: Supabase connection pooler (transaction mode, port 6543)
-  url       = env("DATABASE_URL")
-  // Migrations & introspection: direct connection (port 5432).
-  // Pooler tidak mendukung prepared statement / DDL yang dipakai Prisma Migrate.
-  directUrl = env("DIRECT_URL")
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 enum Role {
@@ -18,11 +14,9 @@ enum Role {
 
 enum OrderStatus {
   PENDING
-  PICKUP
   WASHING
   DRYING
   IRONING
-  PACKING
   READY
   DELIVERED
   COMPLETED
@@ -38,7 +32,16 @@ enum ServiceType {
 enum PaymentMethod {
   CASH
   QRIS
+  TRANSFER
   EWALLET
+}
+
+enum ExpenseCategory {
+  BAHAN_BAKU
+  UTILITAS
+  GAJI
+  ADMINISTRASI
+  LAINNYA
 }
 
 enum PaymentStatus {
@@ -92,14 +95,23 @@ model Service {
   code        String      @unique
   name        String
   type        ServiceType @default(KILOAN)
+  category    String?
   pricePerKg  Int?
   priceUnit   Int?
   description String?
   isActive    Boolean     @default(true)
+  parentId    Int?
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
 
-  orders Order[]
+  parent   Service?  @relation("ServiceHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
+  children Service[] @relation("ServiceHierarchy")
+
+  orders     Order[]
+  orderItems OrderItem[]
+
+  @@index([parentId])
+  @@index([category])
 }
 
 model Order {
@@ -126,6 +138,7 @@ model Order {
   customer        Customer             @relation(fields: [customerId], references: [id], onDelete: Restrict)
   service         Service              @relation(fields: [serviceId], references: [id], onDelete: Restrict)
   courier         User?                @relation("CourierOrders", fields: [courierId], references: [id], onDelete: Restrict)
+  items           OrderItem[]
   statusHistories OrderStatusHistory[]
   transaction     Transaction?
   notifications   Notification[]
@@ -137,16 +150,50 @@ model Order {
   @@index([status, createdAt])
 }
 
+model OrderItem {
+  id         Int      @id @default(autoincrement())
+  orderId    Int
+  serviceId  Int
+  name       String
+  weight     Float?
+  itemCount  Int?
+  unitPrice  Int
+  subtotal   Int
+  createdAt  DateTime @default(now())
+
+  order   Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  service Service @relation(fields: [serviceId], references: [id], onDelete: Restrict)
+
+  @@index([orderId])
+  @@index([serviceId])
+}
+
+model Expense {
+  id          Int             @id @default(autoincrement())
+  category    ExpenseCategory @default(LAINNYA)
+  amount      Int
+  source      String?
+  description String?
+  receiptProof String?
+  spentAt     DateTime        @default(now())
+  createdBy   Int?
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  @@index([category, spentAt])
+  @@index([spentAt])
+}
+
 model OrderStatusHistory {
   id        Int         @id @default(autoincrement())
   orderId   Int
   status    OrderStatus
-  changedBy Int
+  changedBy Int?
   notes     String?
   createdAt DateTime    @default(now())
 
   order Order @relation(fields: [orderId], references: [id], onDelete: Restrict)
-  user  User  @relation(fields: [changedBy], references: [id], onDelete: Restrict)
+  user  User? @relation(fields: [changedBy], references: [id], onDelete: Restrict)
 
   @@index([orderId, createdAt])
 }
