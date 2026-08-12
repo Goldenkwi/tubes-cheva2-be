@@ -19,7 +19,7 @@ docker compose up --build
 Compose otomatis: nyalain PostgreSQL, apply migrations, seed data contoh, lalu
 jalanin API di `http://localhost:8000`. Panduan lengkap: [`README.docker.md`](./README.docker.md).
 
-Diajari langkah demi langkah (clone, jalanin, push ke GitHub):
+langkah demi langkah (clone, jalanin, push ke GitHub):
 [`docker.md`](./docker.md).
 
 ### Opsi B — Manual (Node lokal)
