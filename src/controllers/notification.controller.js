@@ -43,5 +43,48 @@ async function markAllAsRead(req, res, next) {
   }
 }
 
-module.exports = { getMyNotifications, getCustomerNotifications, markAsRead, markAllAsRead };
+async function getMyUserNotifications(req, res, next) {
+  try {
+    const notifications = await notificationService.getUserNotifications(req.user.id);
+    return response.success(res, notifications);
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function markUserNotificationsAsRead(req, res, next) {
+  try {
+    const { ids } = req.body;
+    if (!Array.isArray(ids) || ids.length === 0) {
+      return response.badRequest(res, 'ids harus berupa array yang tidak kosong');
+    }
+    const result = await notificationService.markUserNotificationsAsRead(req.user.id, ids.map(Number));
+    return response.success(res, result, 'Notifikasi ditandai sudah dibaca');
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function deleteUserNotifications(req, res, next) {
+  try {
+    const { ids } = req.body;
+    if (!Array.isArray(ids) || ids.length === 0) {
+      return response.badRequest(res, 'ids harus berupa array yang tidak kosong');
+    }
+    const result = await notificationService.deleteUserNotifications(req.user.id, ids.map(Number));
+    return response.success(res, result, 'Notifikasi berhasil dihapus');
+  } catch (err) {
+    next(err);
+  }
+}
+
+module.exports = {
+  getMyNotifications,
+  getCustomerNotifications,
+  markAsRead,
+  markAllAsRead,
+  getMyUserNotifications,
+  markUserNotificationsAsRead,
+  deleteUserNotifications,
+};
 

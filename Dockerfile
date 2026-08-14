@@ -12,8 +12,9 @@ COPY prisma ./prisma
 RUN npx prisma generate
 
 COPY . .
+RUN chmod +x docker-entrypoint.sh
 
 EXPOSE 8000
 
-# Wait for Postgres, apply migrations, seed, then start
-CMD ["sh", "-c", "npx prisma migrate deploy && node prisma/seed.js && node src/server.js"]
+# Auto-generate JWT secret if unset, wait for Postgres, migrate, seed, start
+ENTRYPOINT ["sh", "/app/docker-entrypoint.sh"]

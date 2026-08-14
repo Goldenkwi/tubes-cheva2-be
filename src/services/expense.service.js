@@ -1,13 +1,14 @@
 const prisma = require('../config/database');
-const { startOfDay, endOfDay, startOfMonth, endOfMonth } = require('date-fns');
+const { startOfMonth, endOfMonth } = require('date-fns');
+const { startOfDayWIB, endOfDayWIB } = require('../utils/datetime');
 
 async function listExpenses({ page = 1, limit = 20, category, startDate, endDate }) {
   const where = {};
   if (category) where.category = category;
   if (startDate || endDate) {
     where.spentAt = {};
-    if (startDate) where.spentAt.gte = startOfDay(new Date(startDate));
-    if (endDate) where.spentAt.lte = endOfDay(new Date(endDate));
+    if (startDate) where.spentAt.gte = startOfDayWIB(startDate);
+    if (endDate) where.spentAt.lte = endOfDayWIB(endDate);
   }
 
   const total = await prisma.expense.count({ where });

@@ -1,12 +1,14 @@
 const prisma = require('../config/database');
 const { startOfDay, endOfDay, startOfMonth, endOfMonth } = require('date-fns');
+const { notifyAllStaff } = require('./notification.service');
+const { startOfDayWIB, endOfDayWIB } = require('../utils/datetime');
 
 async function listTransactions({ page = 1, limit = 20, startDate, endDate, paymentStatus }) {
   const where = {};
   if (startDate || endDate) {
     where.createdAt = {};
-    if (startDate) where.createdAt.gte = startOfDay(new Date(startDate));
-    if (endDate) where.createdAt.lte = endOfDay(new Date(endDate));
+    if (startDate) where.createdAt.gte = startOfDayWIB(startDate);
+    if (endDate) where.createdAt.lte = endOfDayWIB(endDate);
   }
   if (paymentStatus) where.paymentStatus = paymentStatus;
 
@@ -71,7 +73,7 @@ async function payOrder(orderId, data, requester = null) {
   if (existing) throw Object.assign(new Error('Payment transaction already exists'), { statusCode: 409 });
 
   try {
-    return await prisma.transaction.create({
+    const transaction = await prisma.transaction.create({
       data: {
         orderId,
         amount: order.totalPrice,
@@ -82,6 +84,10 @@ async function payOrder(orderId, data, requester = null) {
         notes: data.notes,
       },
     });
+
+    await notifyAllStaff('PAYMENT_CONFIRMED', 'Pembayaran Baru', `Pembayaran untuk pesanan ${order.orderNumber} telah diterima`);
+
+    return transaction;
   } catch (err) {
     if (err.code === 'P2002') {
       throw Object.assign(new Error('Payment transaction already exists'), { statusCode: 409 });

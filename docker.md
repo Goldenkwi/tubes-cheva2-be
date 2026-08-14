@@ -1,6 +1,8 @@
-# Docker + GitHub — Panduan Buat Anggota Baru
+# Docker + GitHub — Backend (BE)
 
-Bisa langsung jalan & ikut push code. Semua langkah dijamin simpel.
+Panduan buat anggota baru: jalanin **backend + database** pakai Docker, dan
+push code ke GitHub sebagai `main`. Panduan frontend ada di
+[`tubes-cheva2-fe/docker.md`](../tubes-cheva2-fe/docker.md).
 
 ## Prasyarat
 
@@ -22,14 +24,10 @@ git --version
 
 ## 1. Ambil Project (Clone dari GitHub)
 
-Buka terminal, pindah ke folder tujuan, lalu:
-
 ```bash
 git clone https://github.com/Goldenkwi/tubes-cheva2-be.git
 cd tubes-cheva2-be
 ```
-
-Sekarang project backend ada di komputer kamu.
 
 > Setiap kali mau update code terbaru dari tim:
 > ```bash

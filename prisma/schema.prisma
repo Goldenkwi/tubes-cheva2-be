@@ -56,20 +56,36 @@ enum NotificationType {
   BILLING
 }
 
+enum UserNotificationType {
+  NEW_ORDER
+  PAYMENT_CONFIRMED
+  CUSTOMER_CHAT
+}
+
+enum SenderType {
+  CUSTOMER
+  STAFF
+}
+
 model User {
   id        Int      @id @default(autoincrement())
   name      String
   email     String   @unique
-  password  String
   phone     String?
+  photoUrl  String?
+  password  String
   role      Role     @default(STAFF)
   isActive  Boolean  @default(true)
+  resetToken       String?
+  resetTokenExpires DateTime?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   orders          Order[]              @relation("CourierOrders")
   statusHistories OrderStatusHistory[]
   cannedHistories CannedQuestionHistory[]
+  userNotifications UserNotification[]
+  messages          Message[]
 }
 
 model Customer {
@@ -88,6 +104,7 @@ model Customer {
   orders          Order[]
   notifications   Notification[]
   cannedHistories CannedQuestionHistory[]
+  conversations   Conversation[]
 }
 
 model Service {
@@ -143,6 +160,7 @@ model Order {
   transaction     Transaction?
   notifications   Notification[]
   cannedHistories CannedQuestionHistory[]
+  conversations   Conversation[]
 
   @@index([customerId, createdAt])
   @@index([serviceId])
@@ -264,5 +282,84 @@ model CannedQuestionHistory {
   @@index([userId, createdAt])
   @@index([cannedQuestionId])
   @@index([customerId])
+}
+
+model UserNotification {
+  id        Int                  @id @default(autoincrement())
+  userId    Int
+  type      UserNotificationType @default(NEW_ORDER)
+  title     String
+  message   String
+  isRead    Boolean              @default(false)
+  createdAt DateTime             @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRead, createdAt])
+}
+
+model Conversation {
+  id         Int       @id @default(autoincrement())
+  customerId Int
+  orderId    Int?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  order    Order?   @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  messages Message[]
+
+  @@index([customerId, updatedAt])
+  @@index([orderId])
+}
+
+model Message {
+  id             Int        @id @default(autoincrement())
+  conversationId Int
+  senderType     SenderType
+  senderUserId   Int?
+  body           String
+  createdAt      DateTime   @default(now())
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  user          User?       @relation(fields: [senderUserId], references: [id], onDelete: SetNull)
+
+  @@index([conversationId, createdAt])
+}
+
+model LaundryProfile {
+  id              Int      @id @default(autoincrement())
+  name            String?
+  address         String?
+  info            String?
+  operationalDays String[] @default([])
+  openTime        String?
+  closeTime       String?
+  whatsapp        String?
+  email           String?
+  links           String?
+  updatedAt       DateTime @updatedAt
+}
+
+model PaymentSetting {
+  id               Int      @id @default(autoincrement())
+  qrisEnabled      Boolean  @default(true)
+  qrisMerchantName String?
+  qrisNmid         String?
+  qrisImageUrl     String?
+  cashEnabled      Boolean  @default(true)
+  transferEnabled  Boolean  @default(true)
+  updatedAt        DateTime @updatedAt
+}
+
+model BankAccount {
+  id          Int      @id @default(autoincrement())
+  bankName    String
+  noRekening  String
+  namaPemilik String
+  enabled     Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  @@index([enabled])
 }
 

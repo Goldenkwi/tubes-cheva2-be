@@ -10,6 +10,11 @@ const expenseRoutes = require('./expense.routes');
 const dashboardRoutes = require('./dashboard.routes');
 const notificationRoutes = require('./notification.routes');
 const cannedQuestionRoutes = require('./cannedQuestion.routes');
+const historyRoutes = require('./history.routes');
+const chatRoutes = require('./chat.routes');
+const laundryProfileRoutes = require('./laundryProfile.routes');
+const paymentSettingRoutes = require('./paymentSetting.routes');
+const uploadRoutes = require('./upload.routes');
 
 const router = Router();
 
@@ -29,5 +34,10 @@ router.use('/dashboard', dashboardRoutes);
 router.use('/notifications', notificationRoutes);
 router.use('/canned-questions', cannedQuestionRoutes);
 router.use('/quick-replies', cannedQuestionRoutes);
+router.use('/history', historyRoutes);
+router.use('/chat', chatRoutes);
+router.use('/laundry-profile', laundryProfileRoutes);
+router.use('/payment-settings', paymentSettingRoutes);
+router.use('/upload', uploadRoutes);
 
 module.exports = router;

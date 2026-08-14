@@ -94,101 +94,46 @@ async function main() {
     );
   }
 
-  // Additional services (SATUAN) — categories with child sub-services
-  const additionalServiceData = [
-    {
-      code: 'ADD_SELIMUT',
-      name: 'Selimut',
-      children: [
-        { code: 'ADD_SELIMUT_KECIL', name: 'Selimut Kecil', priceUnit: 10000 },
-        { code: 'ADD_SELIMUT_SEDANG', name: 'Selimut Sedang', priceUnit: 15000 },
-        { code: 'ADD_SELIMUT_BESAR', name: 'Selimut Besar', priceUnit: 25000 },
-      ],
-    },
-    {
-      code: 'ADD_SPREI',
-      name: 'Sprei',
-      children: [
-        { code: 'ADD_SPREI_KECIL', name: 'Sprei Kecil', priceUnit: 20000 },
-        { code: 'ADD_SPREI_BESAR', name: 'Sprei Besar', priceUnit: 35000 },
-      ],
-    },
-    {
-      code: 'ADD_BANTAL',
-      name: 'Bantal',
-      children: [
-        { code: 'ADD_BANTAL_KECIL', name: 'Bantal Kecil', priceUnit: 30000 },
-        { code: 'ADD_BANTAL_BESAR', name: 'Bantal Besar', priceUnit: 45000 },
-      ],
-    },
-    {
-      code: 'ADD_BEDCOVER',
-      name: 'Bed Cover',
-      children: [
-        { code: 'ADD_BEDCOVER_KECIL', name: 'Bed Cover Kecil', priceUnit: 40000 },
-        { code: 'ADD_BEDCOVER_BESAR', name: 'Bed Cover Besar', priceUnit: 65000 },
-      ],
-    },
-    {
-      code: 'ADD_KARPET',
-      name: 'Karpet',
-      children: [
-        { code: 'ADD_KARPET_KECIL', name: 'Karpet Kecil', priceUnit: 40000 },
-        { code: 'ADD_KARPET_BESAR', name: 'Karpet Besar', priceUnit: 65000 },
-      ],
-    },
-    {
-      code: 'ADD_BONEKA',
-      name: 'Boneka',
-      children: [
-        { code: 'ADD_BONEKA_KECIL', name: 'Boneka Kecil', priceUnit: 20000 },
-        { code: 'ADD_BONEKA_BESAR', name: 'Boneka Besar', priceUnit: 35000 },
-      ],
-    },
-    {
-      code: 'ADD_PUTIH',
-      name: 'Baju Putih',
-      children: [
-        { code: 'ADD_PUTIH_PEMUTIH', name: 'Pemutih + Pelembut', priceUnit: 10000 },
-      ],
-    },
+  // Additional services (SATUAN) — flat list, no size variants.
+  // Everyday clothing plus household items, all single-price per piece.
+  const additionalServices = [
+    { code: 'ADD_BAJU', name: 'Baju', priceUnit: 8000 },
+    { code: 'ADD_CELANA', name: 'Celana', priceUnit: 8000 },
+    { code: 'ADD_KAOS', name: 'Kaos', priceUnit: 6000 },
+    { code: 'ADD_JAKET', name: 'Jaket', priceUnit: 15000 },
+    { code: 'ADD_PUTIH', name: 'Baju Putih', priceUnit: 10000 },
+    { code: 'ADD_HANDUK', name: 'Handuk', priceUnit: 8000 },
+    { code: 'ADD_SPREI', name: 'Sprei', priceUnit: 20000 },
+    { code: 'ADD_SELIMUT', name: 'Selimut', priceUnit: 15000 },
+    { code: 'ADD_BANTAL', name: 'Bantal', priceUnit: 10000 },
+    { code: 'ADD_BEDCOVER', name: 'Bed Cover', priceUnit: 25000 },
+    { code: 'ADD_KARPET', name: 'Karpet', priceUnit: 25000 },
+    { code: 'ADD_GORDEN', name: 'Gorden', priceUnit: 20000 },
+    { code: 'ADD_BONEKA', name: 'Boneka', priceUnit: 15000 },
+    { code: 'ADD_SEPATU', name: 'Sepatu', priceUnit: 20000 },
   ];
 
-  for (const cat of additionalServiceData) {
-    const parent = await prisma.service.upsert({
-      where: { code: cat.code },
-      update: { name: cat.name, type: 'SATUAN', category: 'Layanan Tambahan', priceUnit: null, pricePerKg: null, isActive: true },
-      create: {
-        code: cat.code,
-        name: cat.name,
+  for (const s of additionalServices) {
+    await prisma.service.upsert({
+      where: { code: s.code },
+      update: {
+        name: s.name,
         type: 'SATUAN',
         category: 'Layanan Tambahan',
+        priceUnit: s.priceUnit,
+        pricePerKg: null,
+        parentId: null,
+        isActive: true,
+      },
+      create: {
+        code: s.code,
+        name: s.name,
+        type: 'SATUAN',
+        category: 'Layanan Tambahan',
+        priceUnit: s.priceUnit,
         isActive: true,
       },
     });
-    for (const child of cat.children) {
-      await prisma.service.upsert({
-        where: { code: child.code },
-        update: {
-          name: child.name,
-          type: 'SATUAN',
-          category: 'Layanan Tambahan',
-          priceUnit: child.priceUnit,
-          pricePerKg: null,
-          parentId: parent.id,
-          isActive: true,
-        },
-        create: {
-          code: child.code,
-          name: child.name,
-          type: 'SATUAN',
-          category: 'Layanan Tambahan',
-          priceUnit: child.priceUnit,
-          parentId: parent.id,
-          isActive: true,
-        },
-      });
-    }
   }
 
   // ===== Customers =====
@@ -208,17 +153,17 @@ async function main() {
 
   // ===== Sample Orders (multi-service line items) =====
   const cuciSetrika = await prisma.service.findUnique({ where: { code: 'WASH_IRON' } });
-  const selimutKecil = await prisma.service.findUnique({ where: { code: 'ADD_SELIMUT_KECIL' } });
-  const spreiBesar = await prisma.service.findUnique({ where: { code: 'ADD_SPREI_BESAR' } });
+  const selimut = await prisma.service.findUnique({ where: { code: 'ADD_SELIMUT' } });
+  const sprei = await prisma.service.findUnique({ where: { code: 'ADD_SPREI' } });
 
   const sampleOrders = [
     {
       customer: customers[0],
       items: [
         { serviceId: cuciSetrika.id, name: cuciSetrika.name, weight: 7.4, unitPrice: 8000, subtotal: 59200 },
-        { serviceId: selimutKecil.id, name: selimutKecil.name, itemCount: 1, unitPrice: 10000, subtotal: 10000 },
+        { serviceId: selimut.id, name: selimut.name, itemCount: 1, unitPrice: 15000, subtotal: 15000 },
       ],
-      totalPrice: 69200,
+      totalPrice: 74200,
       status: 'WASHING',
       orderNumber: 'TRX/0023400501',
       pickupAddress: 'Jl. Merdeka No. 1, Bandung',
@@ -231,9 +176,9 @@ async function main() {
       customer: customers[1],
       items: [
         { serviceId: cuciSetrika.id, name: cuciSetrika.name, weight: 3.5, unitPrice: 8000, subtotal: 28000 },
-        { serviceId: spreiBesar.id, name: spreiBesar.name, itemCount: 1, unitPrice: 35000, subtotal: 35000 },
+        { serviceId: sprei.id, name: sprei.name, itemCount: 1, unitPrice: 20000, subtotal: 20000 },
       ],
-      totalPrice: 63000,
+      totalPrice: 48000,
       status: 'READY',
       orderNumber: 'TRX/0023300502',
       pickupAddress: 'Jl. Dago No. 22, Bandung',
@@ -343,9 +288,25 @@ async function main() {
     await prisma.cannedQuestion.createMany({ data: cannedQuestionData });
   }
 
+  // ===== Sample Chat Conversation =====
+  const chatCount = await prisma.conversation.count();
+  if (chatCount === 0) {
+    const raniOrder = await prisma.order.findUnique({ where: { orderNumber: 'TRX/0023400501' } });
+    await prisma.conversation.create({
+      data: {
+        customerId: customers[0].id,
+        orderId: raniOrder ? raniOrder.id : null,
+        messages: {
+          create: { senderType: 'CUSTOMER', body: 'Kapan pesanan saya selesai ?' },
+        },
+      },
+    });
+    console.log('Chat conversation seeded');
+  }
+
   console.log('Seed completed successfully');
   console.log(`Admin ready: ${admin.email}`);
-  console.log(`Services: ${mainServiceRows.length} main + ${additionalServiceData.length} additional categories`);
+  console.log(`Services: ${mainServiceRows.length} main + ${additionalServices.length} additional`);
   console.log(`Customers: ${customers.length}`);
   console.log(`Orders seeded: ${sampleOrders.length}`);
   console.log(`Expenses seeded: ${expenses.length}`);

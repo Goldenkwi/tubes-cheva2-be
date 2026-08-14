@@ -14,7 +14,13 @@ const swaggerDocument = require('../docs/swagger.json');
 
 const app = express();
 
-app.use(helmet());
+app.use(
+  helmet({
+    // FE (localhost:5173) loads uploaded images from the BE (localhost:8000),
+    // so images must be readable cross-origin.
+    crossOriginResourcePolicy: { policy: 'cross-origin' },
+  })
+);
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));

@@ -45,5 +45,53 @@ async function createNotification(data) {
   return prisma.notification.create({ data });
 }
 
-module.exports = { getCustomerNotifications, markAsRead, markAllAsRead, createNotification };
+// ===== Staff-facing notifications (UserNotification) =====
+
+async function getUserNotifications(userId) {
+  return prisma.userNotification.findMany({
+    where: { userId },
+    orderBy: { createdAt: 'desc' },
+    take: 100,
+  });
+}
+
+async function markUserNotificationsAsRead(userId, ids) {
+  const result = await prisma.userNotification.updateMany({
+    where: { userId, id: { in: ids }, isRead: false },
+    data: { isRead: true },
+  });
+  return { updated: result.count };
+}
+
+async function deleteUserNotifications(userId, ids) {
+  const result = await prisma.userNotification.deleteMany({
+    where: { userId, id: { in: ids } },
+  });
+  return { deleted: result.count };
+}
+
+// Broadcast a notification to every active staff/admin user (used on new
+// order, payment confirmation, and incoming customer chat messages).
+async function notifyAllStaff(type, title, message) {
+  const users = await prisma.user.findMany({
+    where: { isActive: true },
+    select: { id: true },
+  });
+  if (users.length === 0) return;
+
+  await prisma.userNotification.createMany({
+    data: users.map((u) => ({ userId: u.id, type, title, message })),
+  });
+}
+
+module.exports = {
+  getCustomerNotifications,
+  markAsRead,
+  markAllAsRead,
+  createNotification,
+  getUserNotifications,
+  markUserNotificationsAsRead,
+  deleteUserNotifications,
+  notifyAllStaff,
+};
 

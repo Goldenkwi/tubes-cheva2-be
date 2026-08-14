@@ -1,6 +1,7 @@
 const prisma = require('../config/database');
 const { randomInt } = require('crypto');
-const { ORDER_STATUS, ORDER_STATUS_LABEL, ORDER_TRANSITIONS, SERVICE_TYPE } = require('../utils/constants');
+const { ORDER_STATUS, ORDER_STATUS_LABEL, ORDER_TRANSITIONS, SERVICE_TYPE, PAYMENT_METHOD } = require('../utils/constants');
+const { notifyAllStaff } = require('./notification.service');
 
 function generateOrderNumber() {
   const now = new Date();
@@ -178,6 +179,22 @@ async function createOrder(data, userId = null, customerIdOverride = null) {
       },
     });
 
+    // Manual payment (no gateway): staff-created orders are paid at the counter,
+    // so record a PAID transaction immediately — this feeds the Pendapatan page.
+    // Customer-created orders (no userId) stay UNPAID and are paid later via
+    // POST /transactions/:id/pay.
+    if (userId) {
+      await tx.transaction.create({
+        data: {
+          orderId: newOrder.id,
+          amount: totalPrice,
+          paymentMethod: data.paymentMethod || PAYMENT_METHOD.CASH,
+          paymentStatus: 'PAID',
+          paidAt: new Date(),
+        },
+      });
+    }
+
     await tx.customer.update({
       where: { id: targetCustomerId },
       data: {
@@ -188,6 +205,8 @@ async function createOrder(data, userId = null, customerIdOverride = null) {
 
     return newOrder;
   });
+
+  await notifyAllStaff('NEW_ORDER', 'Pesanan Baru', `Pesanan ${order.orderNumber} telah diterima`);
 
   return getOrder(order.id);
 }

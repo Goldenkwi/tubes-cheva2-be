@@ -1,5 +1,5 @@
 const { z } = require('zod');
-const { ORDER_STATUS } = require('../utils/constants');
+const { ORDER_STATUS, PAYMENT_METHOD } = require('../utils/constants');
 
 const orderItemSchema = z.object({
   serviceId: z.number().int().positive(),
@@ -21,6 +21,7 @@ const createOrderSchema = z.object({
     estimatedDone: z.string().datetime().optional(),
     notes: z.string().optional(),
     courierId: z.number().int().positive().optional(),
+    paymentMethod: z.nativeEnum(PAYMENT_METHOD).optional(),
   }).refine((d) => d.serviceId || (d.items && d.items.length > 0), {
     message: 'Either serviceId or items is required',
     path: ['items'],

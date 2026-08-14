@@ -29,6 +29,44 @@ async function getProfile(req, res, next) {
   }
 }
 
+async function updateProfile(req, res, next) {
+  try {
+    const user = await authService.updateProfile(req.user.id, req.body);
+    return response.success(res, user, 'Profil berhasil diperbarui');
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function changePassword(req, res, next) {
+  try {
+    const { oldPassword, newPassword } = req.body;
+    const user = await authService.changePassword(req.user.id, oldPassword, newPassword);
+    return response.success(res, user, 'Password berhasil diubah');
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function forgotPassword(req, res, next) {
+  try {
+    const result = await authService.forgotPassword(req.body.email);
+    return response.success(res, result, 'Link reset berhasil dibuat');
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function resetPassword(req, res, next) {
+  try {
+    const { token, newPassword } = req.body;
+    const user = await authService.resetPassword(token, newPassword);
+    return response.success(res, user, 'Password berhasil diubah');
+  } catch (err) {
+    next(err);
+  }
+}
+
 async function logout(req, res, next) {
   try {
     // Stateless JWT: nothing to invalidate server-side. Client is
@@ -39,4 +77,4 @@ async function logout(req, res, next) {
   }
 }
 
-module.exports = { login, register, getProfile, logout };
+module.exports = { login, register, getProfile, updateProfile, changePassword, forgotPassword, resetPassword, logout };
